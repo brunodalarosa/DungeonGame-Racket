@@ -30,8 +30,8 @@
   
 ; sprites do jogo
 (define char (read-bitmap "./knight.png"))
-;(define fire (read-bitmap "./fire.png"))
-;(define ice (read-bitmap "./ice.png"))
+(define fire (read-bitmap "./fire.png"))
+(define ice (read-bitmap "./ice.png"))
 (define sword (read-bitmap "./sword.png"))
 (define gameoversprite (read-bitmap "./gameover.png"))
 (define background (read-bitmap "./background.png"))
