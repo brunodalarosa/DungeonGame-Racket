@@ -3,6 +3,8 @@
 (require racket/gui)
 (require racket/draw)
 (require racket/mpair)
+(require rackunit)
+(require rackunit/text-ui)
 
 ; Estrutura Posição X e Y
 (struct pos (x y))
@@ -23,6 +25,7 @@
 (define spawner 30)
 (define count 0)
 (define level 1)
+(define AI #f)
 
 ; Posição inicial
 (define start-pos (pos(/ (* largura tam) 2.5) (- (* altura tam) 90)))
@@ -48,19 +51,32 @@
                    [height tela_altura])
 )
 
-; Lê o nome do jogador
-(define get-nome (lambda ()
-                      (display "Seu nome, desafiante: ")
-                      (define nome (read))
-                      (when (not (string? nome)) (set! nome (symbol->string nome)))
-                      (cond [(string=? nome "")
-                             (display "Nome inválido")
-                             (get-nome)]
-                            [else nome]))
-)
+; Printa uma posição
+(define (print-pos p)
+  (display "Pos [")
+  (display (pos-x p))
+  (display "/")
+  (display (pos-y p))
+  (displayln "]")
+ )
+
+; Andar direita
+(define (move-dir val)
+     (if (< (pos-x char-pos) (-(* largura tam) 55)) 
+       (set! char-pos (pos (+ (pos-x char-pos) val) (pos-y char-pos)))
+      #f 
+  ))
+
+; Andar esquerda
+(define (move-esq val)
+   (if (> (pos-x char-pos) -10) 
+       (set! char-pos (pos (- (pos-x char-pos) val) (pos-y char-pos)))
+      #f 
+  ))
 
 ; Termina o jogo
 (define (gameover)
+  (set! inimigos (mcons 0 0))
   (send timer stop)
   (send dc set-background "black")
   (send dc clear)
@@ -109,7 +125,7 @@
 
 ; Checa por colisões dos inimigos com o chão
 (define (colidiu-c e)
-  (if (>= (pos-y (mcar e)) 470)
+  (if (>= (pos-y (mcar e)) 465)
       (disable e)
       #f
       )
@@ -117,6 +133,7 @@
 
 ; Spawn iterator
 (define (spawn-it e)
+  
   (if (mpair? (mcdr e))
       (spawn-it (mcdr e))
       (set-mcdr! e (mcons  (pos (random 441) -50) 0))
@@ -137,12 +154,61 @@
        #f )
   )
 
+;; "Olha para cima"
+;; Função auxiliar a IA, compara a posição de um inimigo com a posição do jogador
+;; Retorna  um valor que representa um estado de decisão para a IA
+;; Tests
+;; Pos -> Número
+;; 0 - Seguro
+;; 1 - Perigo a direita
+;; 2 - Perigo a esquerda
+(define lookup-tests
+         (test-suite
+          "lookup tests"
+          (check-equal? (lookup (pos 180 20)) 2)
+          (check-equal? (lookup (pos 210 20)) 1)
+          (check-equal? (lookup (pos 20 20)) 0)
+          )
+         )
+
+(define (lookup e)
+   ;(print-pos e)
+   (let ([dist (- (pos-x e) (pos-x char-pos)) ])
+     ;(display "distancia  ")
+     ;(displayln dist)
+     (if
+          (and (>= dist -40) (<= dist 5))
+          2
+          (if
+            (and (<= dist 50) (>= dist -10))
+            1
+            0
+            )
+       )
+    )
+  )
+
+; Modo autonomo
+(define (autoplay e)
+  (if (= 1 (lookup e))
+          (move-esq 15) 
+          (if (= 2 (lookup e))
+            (move-dir 15)
+            #f
+          )
+      )
+)
+
 ; Atualiza o sprite e checa por colisões
 (define (att-final e)
   (set-mcar! e (pos (pos-x (mcar e)) (+(pos-y (mcar e)) (+ level 5))))
   (desenha-sprite sword (mcar e))
   (colidiu-p e)
   (colidiu-c e)
+  (if AI
+      (autoplay (mcar e))
+      #f
+      )
 )
 
 ; Atualiza um inimigo
@@ -171,19 +237,18 @@
       )
 )
 
-; Andar direita
-(define (move-dir val)
-     (if (< (pos-x char-pos) (-(* largura tam) 55)) 
-       (set! char-pos (pos (+ (pos-x char-pos) val) (pos-y char-pos)))
-      #f 
-  ))
+; Aciona ou cancela a IA
+(define (toggleAI)
+  (if AI
+      (set! AI #f)
+      (set! AI #t)
+      )
 
-; Andar esquerda
-(define (move-esq val)
-   (if (> (pos-x char-pos) -10) 
-       (set! char-pos (pos (- (pos-x char-pos) val) (pos-y char-pos)))
-      #f 
-  ))
+  (if AI
+      (displayln "IA ativada")
+      (displayln "IA desativada")
+   )
+  )
 
 ; Ações dos botões in-game
 (define (canvas-key frame) (class canvas%
@@ -191,6 +256,7 @@
                                (cond
                                  [(eq? (send key-event get-key-code) 'left) (move-esq 5)]
                                  [(eq? (send key-event get-key-code) 'right) (move-dir 5)]
+                                 [(eq? (send key-event get-key-code) '#\a) (toggleAI)]
                                  [(eq? (send key-event get-key-code) '#\r) (iniciar)]))
                              (super-new [parent frame])))
 
@@ -218,10 +284,15 @@
                                       (send dc draw-text "Score: " (- (* largura tam) 100) 5)
                                       (send dc draw-text (number->string score) (- (* largura tam) 35) 5)
 
+                                      (if AI
+                                           (send dc draw-text "(AI playing)" (- (* largura tam) 312) 30)
+                                           #f
+                                         )
+                                      
                                       (send dc draw-text "Level " (- (* largura tam) 280) 5)
                                       (send dc draw-text (number->string level) (- (* largura tam) 220) 5)
                                       
-                                      (send dc draw-text "Vidas: " 5 5)
+                                      (send dc draw-text "Lifes: " 5 5)
                                       (send dc draw-text (number->string vidas) 70 5)
                                       
                                       ; Lógica do jogo
@@ -230,13 +301,25 @@
                                       (level-up)
 )]))
 
+
+
+; Executa os testes
+(define (testes)
+  (display "Posição inicial personagem: ")
+  (print-pos char-pos)
+
+  (run-tests (test-suite "Todos os testes" lookup-tests))
+  (void)
+ )
+
+; Inicializa o jogo
 (define iniciar (lambda()
                   (set! score 0)
                   (set! vidas 3)
                   (set! level 1)
                   (set-mcar! inimigos (pos (random 441) -50))
                   (set! char-pos (struct-copy pos start-pos))
+                  (testes)
                   (send timer start 70)))
 
-(set! nome (get-nome))
 (iniciar)
