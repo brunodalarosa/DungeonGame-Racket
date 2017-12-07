@@ -11,4 +11,5 @@ Usage:
 
 ![ScreenShot](Screenshot.png)
 
+Graphic assets by 0x72 (https://0x72.itch.io/)
 Feedbacks are welcome! mail to bcesar.g6@gmail.com
