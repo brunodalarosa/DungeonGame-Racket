@@ -7,7 +7,7 @@ Usage:
 ## How to play
 **Left and right arrow** - Move the character |
 **R** - Restart the game |
-**A** - Toogle (On/Off) the game self play AI 
+**A** - Toggle (On/Off) the game self play AI 
 
 ![ScreenShot](Screenshot.png)
 
